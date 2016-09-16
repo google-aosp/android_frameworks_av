@@ -67,6 +67,9 @@ private:
     status_t convertCbYCrY(
             const BitmapParams &src, const BitmapParams &dst);
 
+    status_t convertYCbYCr(
+            const BitmapParams &src, const BitmapParams &dst);
+
     status_t convertYUV420Planar(
             const BitmapParams &src, const BitmapParams &dst);
 
