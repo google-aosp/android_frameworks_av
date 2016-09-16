@@ -795,11 +795,7 @@ status_t ACodec::allocateBuffersOnPort(OMX_U32 portIndex) {
 
     status_t err;
     if (mNativeWindow != NULL && portIndex == kPortIndexOutput) {
-        if (storingMetadataInDecodedBuffers()) {
-            err = allocateOutputMetadataBuffers();
-        } else {
             err = allocateOutputBuffersFromNativeWindow();
-        }
     } else {
         OMX_PARAM_PORTDEFINITIONTYPE def;
         InitOMXParams(&def);
@@ -996,12 +992,32 @@ status_t ACodec::setupNativeWindowSizeFormatAndUsage(
     memset(&mLastNativeWindowCrop, 0, sizeof(mLastNativeWindowCrop));
     mLastNativeWindowDataSpace = HAL_DATASPACE_UNKNOWN;
 
+    ALOGE("ACodec:PATCH:setupNativeWindowSizeFormatAndUsage[%s] def.format.video.eColorFormat(%i)", mComponentName.c_str(), def.format.video.eColorFormat);
+    OMX_COLOR_FORMATTYPE HalColorFormat;
+    status_t omxresuilts;
+    switch (def.format.video.eColorFormat) {
+        case OMX_COLOR_FormatYCbYCr:
+            def.format.video.eColorFormat = OMX_COLOR_FormatYUV420Planar;
+            omxresuilts = mOMX->setParameter(mNode, OMX_IndexParamPortDefinition, &def, sizeof(def));
+            if (omxresuilts != OK) {
+                ALOGE("PATCH:ACodec:configureOutputBuffersFromNativeWindow setParameter(OMX_IndexParamPortDefinition) ERROR");
+            }
+            HalColorFormat = (OMX_COLOR_FORMATTYPE)HAL_PIXEL_FORMAT_YV12;
+        break;
+        case OMX_COLOR_FormatYUV420Planar:
+            HalColorFormat = (OMX_COLOR_FORMATTYPE)HAL_PIXEL_FORMAT_YV12;
+        break;
+        default:
+            HalColorFormat = def.format.video.eColorFormat;
+        break;
+    }
+
     ALOGV("gralloc usage: %#x(OMX) => %#x(ACodec)", omxUsage, usage);
     err = setNativeWindowSizeFormatAndUsage(
             nativeWindow,
             def.format.video.nFrameWidth,
             def.format.video.nFrameHeight,
-            def.format.video.eColorFormat,
+            HalColorFormat,
             mRotationDegrees,
             usage,
             reconnect);
@@ -1808,13 +1824,6 @@ status_t ACodec::configureCodec(
             mInputMetadataType = (MetadataBufferType)storeMeta;
         }
 
-        uint32_t usageBits;
-        if (mOMX->getParameter(
-                mNode, (OMX_INDEXTYPE)OMX_IndexParamConsumerUsageBits,
-                &usageBits, sizeof(usageBits)) == OK) {
-            inputFormat->setInt32(
-                    "using-sw-read-often", !!(usageBits & GRALLOC_USAGE_SW_READ_OFTEN));
-        }
     }
 
     int32_t prependSPSPPS = 0;
@@ -2316,22 +2325,24 @@ status_t ACodec::configureCodec(
         err = setMinBufferSize(kPortIndexInput, (size_t)maxInputSize);
     } else if (!strcmp("OMX.Nvidia.aac.decoder", mComponentName.c_str())) {
         err = setMinBufferSize(kPortIndexInput, 8192);  // XXX
+    }else if (!strncmp(mComponentName.c_str(), "OMX.brcm.video.h264.hw.decoder", 30)) {
+        setMinBufferSize(kPortIndexInput, (1080 * 720 * 3) / 2);
     }
 
-    int32_t priority;
-    if (msg->findInt32("priority", &priority)) {
-        err = setPriority(priority);
-    }
+    //int32_t priority;
+    //if (msg->findInt32("priority", &priority)) {
+    //    err = setPriority(priority);
+    //}
 
-    int32_t rateInt = -1;
-    float rateFloat = -1;
-    if (!msg->findFloat("operating-rate", &rateFloat)) {
-        msg->findInt32("operating-rate", &rateInt);
-        rateFloat = (float)rateInt;  // 16MHz (FLINTMAX) is OK for upper bound.
-    }
-    if (rateFloat > 0) {
-        err = setOperatingRate(rateFloat, video);
-    }
+    //int32_t rateInt = -1;
+    //float rateFloat = -1;
+    //if (!msg->findFloat("operating-rate", &rateFloat)) {
+    //    msg->findInt32("operating-rate", &rateInt);
+    //    rateFloat = (float)rateInt;  // 16MHz (FLINTMAX) is OK for upper bound.
+    //}
+    //if (rateFloat > 0) {
+    //    err = setOperatingRate(rateFloat, video);
+    //}
 
     // NOTE: both mBaseOutputFormat and mOutputFormat are outputFormat to signal first frame.
     mBaseOutputFormat = outputFormat;
@@ -3043,6 +3054,10 @@ status_t ACodec::setVideoPortFormatType(
             colorFormat = format.eColorFormat;
         }
 
+        if (!strncmp("OMX.brcm.video.h264.hw.decoder", mComponentName.c_str(), 30)) {
+            format.eColorFormat = OMX_COLOR_FormatYUV420Planar;
+        }
+
         // The following assertion is violated by TI's video decoder.
         // CHECK_EQ(format.nIndex, index);
 
@@ -3065,6 +3080,9 @@ status_t ACodec::setVideoPortFormatType(
             && format.eColorFormat == colorFormat) {
             found = true;
             break;
+        }
+        if((unsigned int)err == 0x80001005){
+            err = OMX_ErrorNoMore;
         }
 
         if (index == kMaxIndicesToCheck) {
@@ -4576,6 +4594,16 @@ bool ACodec::describeDefaultColorFormat(DescribeColorFormat2Params &params) {
     image.mNumPlanes = 0;
 
     const OMX_COLOR_FORMATTYPE fmt = params.eColorFormat;
+
+    switch(params.eColorFormat){
+        case OMX_COLOR_FormatYCbYCr:{
+            params.eColorFormat = (OMX_COLOR_FORMATTYPE)HAL_PIXEL_FORMAT_YV12;
+        }
+        break;
+        default:
+        break;
+    }
+
     image.mWidth = params.nFrameWidth;
     image.mHeight = params.nFrameHeight;
 
@@ -7464,14 +7492,14 @@ status_t ACodec::setParameters(const sp<AMessage> &params) {
         }
     }
 
-    float rate;
-    if (params->findFloat("operating-rate", &rate) && rate > 0) {
-        status_t err = setOperatingRate(rate, mIsVideo);
-        if (err != OK) {
-            ALOGE("Failed to set parameter 'operating-rate' (err %d)", err);
-            return err;
-        }
-    }
+    //float rate;
+    //if (params->findFloat("operating-rate", &rate) && rate > 0) {
+    //    status_t err = setOperatingRate(rate, mIsVideo);
+    //    if (err != OK) {
+    //        ALOGE("Failed to set parameter 'operating-rate' (err %d)", err);
+    //        return err;
+    //    }
+    //}
 
     int32_t intraRefreshPeriod = 0;
     if (params->findInt32("intra-refresh-period", &intraRefreshPeriod)
@@ -8110,9 +8138,13 @@ status_t ACodec::queryCapabilities(
                     builder->addColorFormat(flexibleEquivalent);
                 }
             }
-            supportedColors.push(portFormat.eColorFormat);
-            builder->addColorFormat(portFormat.eColorFormat);
-
+            if(portFormat.eColorFormat == OMX_COLOR_FormatYCbYCr) {
+                supportedColors.push(OMX_COLOR_FormatYUV420Planar);
+                builder->addColorFormat(OMX_COLOR_FormatYUV420Planar);
+            }else{
+                supportedColors.push(portFormat.eColorFormat);
+                builder->addColorFormat(portFormat.eColorFormat);
+            }
             if (index == kMaxIndicesToCheck) {
                 ALOGW("[%s] stopping checking formats after %u: %s(%x)",
                         name.c_str(), index,
