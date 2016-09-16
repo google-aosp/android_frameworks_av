@@ -795,11 +795,7 @@ status_t ACodec::allocateBuffersOnPort(OMX_U32 portIndex) {
 
     status_t err;
     if (mNativeWindow != NULL && portIndex == kPortIndexOutput) {
-        if (storingMetadataInDecodedBuffers()) {
-            err = allocateOutputMetadataBuffers();
-        } else {
             err = allocateOutputBuffersFromNativeWindow();
-        }
     } else {
         OMX_PARAM_PORTDEFINITIONTYPE def;
         InitOMXParams(&def);
@@ -996,12 +992,24 @@ status_t ACodec::setupNativeWindowSizeFormatAndUsage(
     memset(&mLastNativeWindowCrop, 0, sizeof(mLastNativeWindowCrop));
     mLastNativeWindowDataSpace = HAL_DATASPACE_UNKNOWN;
 
+    ALOGE("ACodec:PATCH:setupNativeWindowSizeFormatAndUsage[%s] def.format.video.eColorFormat(%i)", mComponentName.c_str(), def.format.video.eColorFormat);
+    OMX_COLOR_FORMATTYPE HalColorFormat;
+    switch (def.format.video.eColorFormat) {
+        case OMX_COLOR_FormatYCbYCr:{
+            HalColorFormat = (OMX_COLOR_FORMATTYPE)HAL_PIXEL_FORMAT_YV12;
+        }
+        break;
+        default:
+            HalColorFormat = (OMX_COLOR_FORMATTYPE)HAL_PIXEL_FORMAT_YV12;
+        break;
+    }
+
     ALOGV("gralloc usage: %#x(OMX) => %#x(ACodec)", omxUsage, usage);
     err = setNativeWindowSizeFormatAndUsage(
             nativeWindow,
             def.format.video.nFrameWidth,
             def.format.video.nFrameHeight,
-            def.format.video.eColorFormat,
+            HalColorFormat,
             mRotationDegrees,
             usage,
             reconnect);
@@ -1808,13 +1816,6 @@ status_t ACodec::configureCodec(
             mInputMetadataType = (MetadataBufferType)storeMeta;
         }
 
-        uint32_t usageBits;
-        if (mOMX->getParameter(
-                mNode, (OMX_INDEXTYPE)OMX_IndexParamConsumerUsageBits,
-                &usageBits, sizeof(usageBits)) == OK) {
-            inputFormat->setInt32(
-                    "using-sw-read-often", !!(usageBits & GRALLOC_USAGE_SW_READ_OFTEN));
-        }
     }
 
     int32_t prependSPSPPS = 0;
@@ -2318,20 +2319,20 @@ status_t ACodec::configureCodec(
         err = setMinBufferSize(kPortIndexInput, 8192);  // XXX
     }
 
-    int32_t priority;
-    if (msg->findInt32("priority", &priority)) {
-        err = setPriority(priority);
-    }
+    //int32_t priority;
+    //if (msg->findInt32("priority", &priority)) {
+    //    err = setPriority(priority);
+    //}
 
-    int32_t rateInt = -1;
-    float rateFloat = -1;
-    if (!msg->findFloat("operating-rate", &rateFloat)) {
-        msg->findInt32("operating-rate", &rateInt);
-        rateFloat = (float)rateInt;  // 16MHz (FLINTMAX) is OK for upper bound.
-    }
-    if (rateFloat > 0) {
-        err = setOperatingRate(rateFloat, video);
-    }
+    //int32_t rateInt = -1;
+    //float rateFloat = -1;
+    //if (!msg->findFloat("operating-rate", &rateFloat)) {
+    //    msg->findInt32("operating-rate", &rateInt);
+    //    rateFloat = (float)rateInt;  // 16MHz (FLINTMAX) is OK for upper bound.
+    //}
+    //if (rateFloat > 0) {
+    //    err = setOperatingRate(rateFloat, video);
+    //}
 
     // NOTE: both mBaseOutputFormat and mOutputFormat are outputFormat to signal first frame.
     mBaseOutputFormat = outputFormat;
@@ -4576,6 +4577,16 @@ bool ACodec::describeDefaultColorFormat(DescribeColorFormat2Params &params) {
     image.mNumPlanes = 0;
 
     const OMX_COLOR_FORMATTYPE fmt = params.eColorFormat;
+
+    switch(params.eColorFormat){
+        case OMX_COLOR_FormatYCbYCr:{
+            params.eColorFormat = (OMX_COLOR_FORMATTYPE)HAL_PIXEL_FORMAT_YV12;
+        }
+        break;
+        default:
+        break;
+    }
+
     image.mWidth = params.nFrameWidth;
     image.mHeight = params.nFrameHeight;
 
@@ -7464,14 +7475,14 @@ status_t ACodec::setParameters(const sp<AMessage> &params) {
         }
     }
 
-    float rate;
-    if (params->findFloat("operating-rate", &rate) && rate > 0) {
-        status_t err = setOperatingRate(rate, mIsVideo);
-        if (err != OK) {
-            ALOGE("Failed to set parameter 'operating-rate' (err %d)", err);
-            return err;
-        }
-    }
+    //float rate;
+    //if (params->findFloat("operating-rate", &rate) && rate > 0) {
+    //    status_t err = setOperatingRate(rate, mIsVideo);
+    //    if (err != OK) {
+    //        ALOGE("Failed to set parameter 'operating-rate' (err %d)", err);
+    //        return err;
+    //    }
+    //}
 
     int32_t intraRefreshPeriod = 0;
     if (params->findInt32("intra-refresh-period", &intraRefreshPeriod)

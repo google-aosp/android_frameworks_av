@@ -2472,8 +2472,6 @@ status_t MPEG4Writer::Track::threadEntry() {
 
         timestampUs -= previousPausedDurationUs;
         if (WARN_UNLESS(timestampUs >= 0ll, "for %s track", trackName)) {
-            copy->release();
-            return ERROR_MALFORMED;
         }
 
         if (!mIsAudio) {
@@ -2503,8 +2501,6 @@ status_t MPEG4Writer::Track::threadEntry() {
             currCttsOffsetTimeTicks =
                     (cttsOffsetTimeUs * mTimeScale + 500000LL) / 1000000LL;
             if (WARN_UNLESS(currCttsOffsetTimeTicks <= 0x0FFFFFFFFLL, "for %s track", trackName)) {
-                copy->release();
-                return ERROR_MALFORMED;
             }
 
             if (mStszTableEntries->count() == 0) {
@@ -2543,8 +2539,6 @@ status_t MPEG4Writer::Track::threadEntry() {
         }
 
         if (WARN_UNLESS(timestampUs >= 0ll, "for %s track", trackName)) {
-            copy->release();
-            return ERROR_MALFORMED;
         }
 
         ALOGV("%s media time stamp: %" PRId64 " and previous paused duration %" PRId64,
@@ -2664,7 +2658,6 @@ status_t MPEG4Writer::Track::threadEntry() {
     }
 
     if (isTrackMalFormed()) {
-        err = ERROR_MALFORMED;
     }
 
     mOwner->trackProgressStatus(mTrackId, -1, err);
