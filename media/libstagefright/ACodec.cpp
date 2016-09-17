@@ -995,9 +995,12 @@ status_t ACodec::setupNativeWindowSizeFormatAndUsage(
     ALOGE("ACodec:PATCH:setupNativeWindowSizeFormatAndUsage[%s] def.format.video.eColorFormat(%i)", mComponentName.c_str(), def.format.video.eColorFormat);
     OMX_COLOR_FORMATTYPE HalColorFormat;
     switch (def.format.video.eColorFormat) {
-        case OMX_COLOR_FormatYCbYCr:{
+        case OMX_COLOR_FormatYCbYCr:
+            def.format.video.eColorFormat = OMX_COLOR_FormatYUV420Planar;
             HalColorFormat = (OMX_COLOR_FORMATTYPE)HAL_PIXEL_FORMAT_YV12;
-        }
+        break;
+        case OMX_COLOR_FormatYUV420Planar:
+            HalColorFormat = (OMX_COLOR_FORMATTYPE)HAL_PIXEL_FORMAT_YV12;
         break;
         default:
             HalColorFormat = (OMX_COLOR_FORMATTYPE)HAL_PIXEL_FORMAT_YV12;
@@ -3044,6 +3047,10 @@ status_t ACodec::setVideoPortFormatType(
             colorFormat = format.eColorFormat;
         }
 
+        if (!strncmp("OMX.brcm.video.h264.hw.decoder", mComponentName.c_str(), 30)) {
+            format.eColorFormat = OMX_COLOR_FormatYUV420Planar;
+        }
+
         // The following assertion is violated by TI's video decoder.
         // CHECK_EQ(format.nIndex, index);
 
@@ -3066,6 +3073,9 @@ status_t ACodec::setVideoPortFormatType(
             && format.eColorFormat == colorFormat) {
             found = true;
             break;
+        }
+        if((unsigned int)err == 0x80001005){
+            err = OMX_ErrorNoMore;
         }
 
         if (index == kMaxIndicesToCheck) {
