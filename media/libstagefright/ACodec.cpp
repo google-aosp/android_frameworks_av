@@ -1003,7 +1003,7 @@ status_t ACodec::setupNativeWindowSizeFormatAndUsage(
             HalColorFormat = (OMX_COLOR_FORMATTYPE)HAL_PIXEL_FORMAT_YV12;
         break;
         default:
-            HalColorFormat = (OMX_COLOR_FORMATTYPE)HAL_PIXEL_FORMAT_YV12;
+            HalColorFormat = def.format.video.eColorFormat;
         break;
     }
 
@@ -8131,9 +8131,13 @@ status_t ACodec::queryCapabilities(
                     builder->addColorFormat(flexibleEquivalent);
                 }
             }
-            supportedColors.push(portFormat.eColorFormat);
-            builder->addColorFormat(portFormat.eColorFormat);
-
+            if(portFormat.eColorFormat == OMX_COLOR_FormatYCbYCr) {
+                supportedColors.push(OMX_COLOR_FormatYUV420Planar);
+                builder->addColorFormat(OMX_COLOR_FormatYUV420Planar);
+            }else{
+                supportedColors.push(portFormat.eColorFormat);
+                builder->addColorFormat(portFormat.eColorFormat);
+            }
             if (index == kMaxIndicesToCheck) {
                 ALOGW("[%s] stopping checking formats after %u: %s(%x)",
                         name.c_str(), index,
