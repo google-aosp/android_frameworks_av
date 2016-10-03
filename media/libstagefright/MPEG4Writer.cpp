@@ -2456,14 +2456,10 @@ status_t MPEG4Writer::Track::threadEntry() {
         if (mResumed) {
             int64_t durExcludingEarlierPausesUs = timestampUs - previousPausedDurationUs;
             if (WARN_UNLESS(durExcludingEarlierPausesUs >= 0ll, "for %s track", trackName)) {
-                copy->release();
-                return ERROR_MALFORMED;
             }
 
             int64_t pausedDurationUs = durExcludingEarlierPausesUs - mTrackDurationUs;
             if (WARN_UNLESS(pausedDurationUs >= lastDurationUs, "for %s track", trackName)) {
-                copy->release();
-                return ERROR_MALFORMED;
             }
 
             previousPausedDurationUs += pausedDurationUs - lastDurationUs;
@@ -2489,8 +2485,6 @@ status_t MPEG4Writer::Track::threadEntry() {
                 cttsOffsetTimeUs = 0;
             }
             if (WARN_UNLESS(cttsOffsetTimeUs >= 0ll, "for %s track", trackName)) {
-                copy->release();
-                return ERROR_MALFORMED;
             }
 
             timestampUs = decodingTimeUs;
@@ -2558,9 +2552,9 @@ status_t MPEG4Writer::Track::threadEntry() {
         if (currDurationTicks < 0ll) {
             ALOGE("do not support out of order frames (timestamp: %lld < last: %lld for %s track",
                     (long long)timestampUs, (long long)lastTimestampUs, trackName);
-            copy->release();
-            mSource->stop();
-            return UNKNOWN_ERROR;
+            //copy->release();
+            //mSource->stop();
+            //return UNKNOWN_ERROR;
         }
 
         // if the duration is different for this sample, see if it is close enough to the previous
