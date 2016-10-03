@@ -994,9 +994,14 @@ status_t ACodec::setupNativeWindowSizeFormatAndUsage(
 
     ALOGE("ACodec:PATCH:setupNativeWindowSizeFormatAndUsage[%s] def.format.video.eColorFormat(%i)", mComponentName.c_str(), def.format.video.eColorFormat);
     OMX_COLOR_FORMATTYPE HalColorFormat;
+    status_t omxresuilts;
     switch (def.format.video.eColorFormat) {
         case OMX_COLOR_FormatYCbYCr:
             def.format.video.eColorFormat = OMX_COLOR_FormatYUV420Planar;
+            omxresuilts = mOMX->setParameter(mNode, OMX_IndexParamPortDefinition, &def, sizeof(def));
+            if (omxresuilts != OK) {
+                ALOGE("PATCH:ACodec:configureOutputBuffersFromNativeWindow setParameter(OMX_IndexParamPortDefinition) ERROR");
+            }
             HalColorFormat = (OMX_COLOR_FORMATTYPE)HAL_PIXEL_FORMAT_YV12;
         break;
         case OMX_COLOR_FormatYUV420Planar:
@@ -2320,6 +2325,8 @@ status_t ACodec::configureCodec(
         err = setMinBufferSize(kPortIndexInput, (size_t)maxInputSize);
     } else if (!strcmp("OMX.Nvidia.aac.decoder", mComponentName.c_str())) {
         err = setMinBufferSize(kPortIndexInput, 8192);  // XXX
+    }else if (!strncmp(mComponentName.c_str(), "OMX.brcm.video.h264.hw.decoder", 30)) {
+        setMinBufferSize(kPortIndexInput, (1080 * 720 * 3) / 2);
     }
 
     //int32_t priority;
