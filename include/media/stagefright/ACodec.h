@@ -329,6 +329,9 @@ protected:
     status_t submitOutputMetadataBuffer();
     void signalSubmitOutputMetadataBufferIfEOS_workaround();
     status_t allocateOutputBuffersFromNativeWindow();
+#ifdef USE_SAMSUNG_COLORFORMAT
+    void setNativeWindowColorFormat(OMX_COLOR_FORMATTYPE &eNativeColorFormat);
+#endif
     status_t cancelBufferToNativeWindow(BufferInfo *info);
     status_t freeOutputBuffersNotOwnedByComponent();
     BufferInfo *dequeueBufferFromNativeWindow();
@@ -486,6 +489,9 @@ protected:
     status_t setOperatingRate(float rateFloat, bool isVideo);
     status_t getIntraRefreshPeriod(uint32_t *intraRefreshPeriod);
     status_t setIntraRefreshPeriod(uint32_t intraRefreshPeriod, bool inConfigure);
+    status_t configureTemporalLayers(
+            uint32_t numLayers, uint32_t numBLayers, bool inConfigure,
+            sp<AMessage> &outputFormat);
 
     status_t setMinBufferSize(OMX_U32 portIndex, size_t size);
 
@@ -559,9 +565,11 @@ protected:
     // Send EOS on input stream.
     void onSignalEndOfInputStream();
 
-    virtual void setBFrames(OMX_VIDEO_PARAM_MPEG4TYPE *mpeg4type) {}
+    static const int32_t kNumBFramesPerPFrame = 1;
+
+    virtual void setBFrames(OMX_VIDEO_PARAM_MPEG4TYPE *mpeg4type);
     virtual void setBFrames(OMX_VIDEO_PARAM_AVCTYPE *h264type,
-        const int32_t iFramesInterval, const int32_t frameRate) {}
+        const int32_t iFramesInterval, const int32_t frameRate);
 
     virtual status_t getVQZIPInfo(const sp<AMessage> &msg) {
         return OK;
