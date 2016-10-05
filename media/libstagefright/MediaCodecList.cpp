@@ -35,6 +35,7 @@
 #include <media/stagefright/MediaCodecList.h>
 #include <media/stagefright/MediaErrors.h>
 #include <media/stagefright/OMXClient.h>
+#include <media/stagefright/OMXCodec.h>
 
 #include <sys/stat.h>
 #include <utils/threads.h>

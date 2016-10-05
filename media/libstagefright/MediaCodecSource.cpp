@@ -37,6 +37,7 @@
 #include <media/stagefright/MetaData.h>
 #include <media/stagefright/PersistentSurface.h>
 #include <media/stagefright/Utils.h>
+#include <media/stagefright/OMXCodec.h>
 #include <stagefright/AVExtensions.h>
 #include <OMX_Core.h>
 

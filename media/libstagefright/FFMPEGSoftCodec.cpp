@@ -35,7 +35,7 @@
 #include <media/stagefright/MediaErrors.h>
 #include <media/stagefright/MetaData.h>
 #include <media/stagefright/Utils.h>
-
+#include <media/stagefright/OMXCodec.h>
 #include <cutils/properties.h>
 
 #include <OMX_Component.h>
