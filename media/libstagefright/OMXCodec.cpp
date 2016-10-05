@@ -1315,6 +1315,11 @@ status_t OMXCodec::setVideoOutputFormat(
         CHECK_EQ((int)format.eCompressionFormat, (int)OMX_VIDEO_CodingUnused);
 
         int32_t colorFormat;
+
+        if (!strncmp("OMX.brcm.video.h264.hw.decoder", mComponentName, 30)) {
+            format.eColorFormat = OMX_COLOR_FormatYUV420Planar;
+        }
+
         if (meta->findInt32(kKeyColorFormat, &colorFormat)
                 && colorFormat != OMX_COLOR_FormatUnused
                 && colorFormat != format.eColorFormat) {
@@ -1326,6 +1331,9 @@ status_t OMXCodec::setVideoOutputFormat(
                             &format, sizeof(format));
                 if (format.eColorFormat == colorFormat) {
                     break;
+                }
+                if((unsigned int)err == 0x80001005){
+                    err = OMX_ErrorNoMore;
                 }
             }
             if (format.eColorFormat != colorFormat) {
@@ -1809,11 +1817,26 @@ status_t OMXCodec::allocateOutputBuffersFromNativeWindow() {
         usage |= GRALLOC_USAGE_PROTECTED;
     }
 
+    OMX_COLOR_FORMATTYPE HalColorFormat;
+
+    switch (def.format.video.eColorFormat) {
+        case OMX_COLOR_FormatYCbYCr:
+            def.format.video.eColorFormat = OMX_COLOR_FormatYUV420Planar;
+            HalColorFormat = (OMX_COLOR_FORMATTYPE)HAL_PIXEL_FORMAT_YV12;
+        break;
+        case OMX_COLOR_FormatYUV420Planar:
+            HalColorFormat = (OMX_COLOR_FORMATTYPE)HAL_PIXEL_FORMAT_YV12;
+        break;
+        default:
+            HalColorFormat = def.format.video.eColorFormat;
+        break;
+    }
+
     err = setNativeWindowSizeFormatAndUsage(
             mNativeWindow.get(),
             def.format.video.nFrameWidth,
             def.format.video.nFrameHeight,
-            def.format.video.eColorFormat,
+            HalColorFormat,
             rotationDegrees,
             usage | GRALLOC_USAGE_HW_TEXTURE | GRALLOC_USAGE_EXTERNAL_DISP,
             false);
@@ -4362,7 +4385,11 @@ status_t QueryCodec(
                     caps->mColorFormats.push(flexibleEquivalent);
                 }
             }
-            caps->mColorFormats.push(portFormat.eColorFormat);
+            if(portFormat.eColorFormat == OMX_COLOR_FormatYCbYCr) {
+                caps->mColorFormats.push(OMX_COLOR_FormatYUV420Planar);
+            }else{
+                caps->mColorFormats.push(portFormat.eColorFormat);
+            }
         }
     } else if (!strcasecmp(MEDIA_MIMETYPE_AUDIO_AAC, mime)) {
         // More audio codecs if they have profiles.
