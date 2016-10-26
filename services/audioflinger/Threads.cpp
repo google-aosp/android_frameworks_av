@@ -6294,7 +6294,6 @@ reacquire_wakelock:
         mTimestamp.mPosition[ExtendedTimestamp::LOCATION_SERVER] += framesRead;
         mTimestamp.mTimeNs[ExtendedTimestamp::LOCATION_SERVER] = systemTime();
 
-#ifndef HAWAII_HWC
         // Update server timestamp with kernel stats
         if (mInput->stream->get_capture_position != nullptr
                 && mPipeSource.get() == nullptr /* don't obtain for FastCapture, could block */) {
@@ -6310,7 +6309,6 @@ reacquire_wakelock:
                 // as the read obtains a lock, preventing the timestamp call from executing.
             }
         }
-#endif
         // Use this to track timestamp information
         // ALOGD("%s", mTimestamp.toString().c_str());
 
