@@ -1858,6 +1858,11 @@ status_t ACodec::configureCodec(
         }
 
     }
+#ifdef HAWAII_HWC
+    else if (!strncmp(mComponentName.c_str(), "OMX.brcm.video.h264.hw.decoder", 30)) {
+           setMinBufferSize(kPortIndexInput, (1920 * 1080 * 3) / 2);
+    }
+#endif
 
     int32_t prependSPSPPS = 0;
     if (encoder
@@ -3169,14 +3174,45 @@ status_t ACodec::setVideoPortFormatType(
     format.nIndex = 0;
     bool found = false;
 
+    if(format.eColorFormat == OMX_COLOR_FormatYCbYCr){
+        if (!strncmp(mComponentName.c_str(), "OMX.brcm.", 9)){
+            format.eColorFormat = OMX_COLOR_FormatYUV420Planar;
+            status_t errs = mOMX->setParameter(mNode, OMX_IndexParamVideoPortFormat, &format, sizeof(format));
+                if (errs != OK){
+                    ALOGE("PATCH:ACodec:setVideoPortFormatType setParameter failed: %d", errs);
+                }
+        }
+    }
+    if(colorFormat == OMX_COLOR_FormatYCbYCr){
+        if (!strncmp(mComponentName.c_str(), "OMX.brcm.", 9)){
+            colorFormat = OMX_COLOR_FormatYUV420Planar;
+        }
+    }
+
     for (OMX_U32 index = 0; index <= kMaxIndicesToCheck; ++index) {
         format.nIndex = index;
         status_t err = mOMX->getParameter(
                 mNode, OMX_IndexParamVideoPortFormat,
                 &format, sizeof(format));
 
+        if (!strncmp("OMX.brcm.video.h264.hw.decoder", mComponentName.c_str(), 30)) {
+            format.eColorFormat = OMX_COLOR_FormatYUV420Planar;
+        }
+        if (colorFormat != OMX_COLOR_FormatUnused && colorFormat != format.eColorFormat) {
+            while (OMX_ErrorNoMore != err) {
+                format.nIndex++;
+                err = mOMX->getParameter(
+                        mNode, OMX_IndexParamVideoPortFormat,
+                            &format, sizeof(format));
+            if((unsigned int)err == 0x80001005){
+                err= OMX_ErrorNoMore;
+            }
+            }
+
         if (err != OK) {
-            return err;
+        //    return err;
+        //      ALOGE("PATCH:OMXCodec:setVideoOutputFormat[%s] getParameter(OMX_IndexParamVideoPortFormat) colorFormat(%i) != format.eColorFormat (%i) OMX_ErrorNoMore", mComponentName, colorFormat, format.eColorFormat);
+        }
         }
 
         // substitute back flexible color format to codec supported format
@@ -3190,9 +3226,6 @@ status_t ACodec::setVideoPortFormatType(
             colorFormat = format.eColorFormat;
         }
 
-        if (!strncmp("OMX.brcm.video.h264.hw.decoder", mComponentName.c_str(), 30)) {
-            format.eColorFormat = OMX_COLOR_FormatYUV420Planar;
-        }
 
         // The following assertion is violated by TI's video decoder.
         // CHECK_EQ(format.nIndex, index);
@@ -3217,9 +3250,9 @@ status_t ACodec::setVideoPortFormatType(
             found = true;
             break;
         }
-        if((unsigned int)err == 0x80001005){
-            err = OMX_ErrorNoMore;
-        }
+        //if((unsigned int)err == 0x80001005){
+        //    err = OMX_ErrorNoMore;
+        //}
 
         if (index == kMaxIndicesToCheck) {
             ALOGW("[%s] stopping checking formats after %u: %s(%x)/%s(%x)",
@@ -3290,6 +3323,24 @@ status_t ACodec::setSupportedOutputFormat(bool getLegacyFlexibleFormat) {
                 || format.eColorFormat == OMX_TI_COLOR_FormatYUV420PackedSemiPlanar) {
             break;
         }
+        if (!strncmp("OMX.brcm.video.h264.hw.decoder", mComponentName.c_str(), 30)) {
+            format.eColorFormat = OMX_COLOR_FormatYUV420Planar;
+        }
+        if (format.eColorFormat == OMX_COLOR_FormatYUV420Planar) {
+            while (OMX_ErrorNoMore != err) {
+            format.nIndex++;
+            err = mOMX->getParameter(
+                    mNode, OMX_IndexParamVideoPortFormat,
+                        &format, sizeof(format));
+            if((unsigned int)err == 0x80001005){
+                err = OMX_ErrorNoMore;
+            }
+            //if(err == 0x80001005){
+            //    err = OMX_ErrorNoMore;
+            //}
+            }
+        }
+
         // find best legacy non-standard format
         OMX_U32 flexibleEquivalent;
         if (legacyFormat.eColorFormat == OMX_COLOR_FormatUnused
