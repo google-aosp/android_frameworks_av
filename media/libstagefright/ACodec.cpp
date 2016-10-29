@@ -1860,7 +1860,7 @@ status_t ACodec::configureCodec(
     }
 #ifdef HAWAII_HWC
     else if (!strncmp(mComponentName.c_str(), "OMX.brcm.video.h264.hw.decoder", 30)) {
-           setMinBufferSize(kPortIndexInput, (1920 * 1080 * 3) / 2);
+           setMinBufferSize(kPortIndexInput, (1280 * 720 * 3) / 2);
     }
 #endif
 
@@ -2363,8 +2363,8 @@ status_t ACodec::configureCodec(
         err = setMinBufferSize(kPortIndexInput, (size_t)maxInputSize);
     } else if (!strcmp("OMX.Nvidia.aac.decoder", mComponentName.c_str())) {
         err = setMinBufferSize(kPortIndexInput, 8192);  // XXX
-    }else if (!strncmp(mComponentName.c_str(), "OMX.brcm.video.h264.hw.decoder", 30)) {
-        setMinBufferSize(kPortIndexInput, (1080 * 720 * 3) / 2);
+    } else if (!strncmp(mComponentName.c_str(), "OMX.brcm.video.h264.hw.decoder", 30)) {
+        setMinBufferSize(kPortIndexInput, (1280 * 720 * 3) / 2);
     }
 
     //int32_t priority;
