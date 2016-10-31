@@ -3198,21 +3198,15 @@ status_t ACodec::setVideoPortFormatType(
         if (!strncmp("OMX.brcm.video.h264.hw.decoder", mComponentName.c_str(), 30)) {
             format.eColorFormat = OMX_COLOR_FormatYUV420Planar;
         }
-        if (colorFormat != OMX_COLOR_FormatUnused && colorFormat != format.eColorFormat) {
-            while (OMX_ErrorNoMore != err) {
-                format.nIndex++;
-                err = mOMX->getParameter(
-                        mNode, OMX_IndexParamVideoPortFormat,
-                            &format, sizeof(format));
-            if((unsigned int)err == 0x80001005){
-                err= OMX_ErrorNoMore;
-            }
-            }
+        err = mOMX->getParameter(
+                mNode, OMX_IndexParamVideoPortFormat,
+                     &format, sizeof(format));
+        if((unsigned int)err == 0x80001005){
+            err= OMX_ErrorNoMore;
+        }
 
         if (err != OK) {
-        //    return err;
-        //      ALOGE("PATCH:OMXCodec:setVideoOutputFormat[%s] getParameter(OMX_IndexParamVideoPortFormat) colorFormat(%i) != format.eColorFormat (%i) OMX_ErrorNoMore", mComponentName, colorFormat, format.eColorFormat);
-        }
+            return err;
         }
 
         // substitute back flexible color format to codec supported format
@@ -3250,9 +3244,6 @@ status_t ACodec::setVideoPortFormatType(
             found = true;
             break;
         }
-        //if((unsigned int)err == 0x80001005){
-        //    err = OMX_ErrorNoMore;
-        //}
 
         if (index == kMaxIndicesToCheck) {
             ALOGW("[%s] stopping checking formats after %u: %s(%x)/%s(%x)",
@@ -3335,9 +3326,6 @@ status_t ACodec::setSupportedOutputFormat(bool getLegacyFlexibleFormat) {
             if((unsigned int)err == 0x80001005){
                 err = OMX_ErrorNoMore;
             }
-            //if(err == 0x80001005){
-            //    err = OMX_ErrorNoMore;
-            //}
             }
         }
 
