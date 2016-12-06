@@ -274,6 +274,7 @@ private:
     bool mIsHevc;
     bool mIsAudio;
     bool mIsMPEG4;
+    bool mIsMalformed;
     int32_t mTrackId;
     int64_t mTrackDurationUs;
     int64_t mMaxChunkDurationUs;
@@ -1547,6 +1548,7 @@ MPEG4Writer::Track::Track(
       mPaused(false),
       mResumed(false),
       mStarted(false),
+      mIsMalformed(false),
       mTrackId(trackId),
       mTrackDurationUs(0),
       mEstimatedTrackSizeBytes(0),
@@ -2498,12 +2500,16 @@ status_t MPEG4Writer::Track::threadEntry() {
             ALOGW("Recorded file size exceeds limit %" PRId64 "bytes",
                     mOwner->mMaxFileSizeLimitBytes);
             mOwner->notify(MEDIA_RECORDER_EVENT_INFO, MEDIA_RECORDER_INFO_MAX_FILESIZE_REACHED, 0);
+            copy->release();
+            mSource->stop();
             break;
         }
         if (mOwner->exceedsFileDurationLimit()) {
             ALOGW("Recorded file duration exceeds limit %" PRId64 "microseconds",
                     mOwner->mMaxFileDurationLimitUs);
             mOwner->notify(MEDIA_RECORDER_EVENT_INFO, MEDIA_RECORDER_INFO_MAX_DURATION_REACHED, 0);
+            copy->release();
+            mSource->stop();
             break;
         }
 
@@ -2788,6 +2794,10 @@ status_t MPEG4Writer::Track::threadEntry() {
 }
 
 bool MPEG4Writer::Track::isTrackMalFormed() const {
+    if (mIsMalformed) {
+        return true;
+    }
+
     if (mStszTableEntries->count() == 0) {                      // no samples written
         ALOGE("The number of recorded samples is 0");
         return true;
